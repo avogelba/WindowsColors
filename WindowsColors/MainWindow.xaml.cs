@@ -1,7 +1,10 @@
-﻿using Microsoft.Win32;
+﻿//using Gat.Controls;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -9,6 +12,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
@@ -37,6 +41,59 @@ namespace WindowsColors
     /// </summary>
     public partial class MainWindow : Window
     {
+        //https://www.pinvoke.net/default.aspx/user32/AppendMenu.html , however there seems to be a InsertMenu already in user32.dll
+        //https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-insertmenua
+        //Note:  The InsertMenu function has been superseded by the InsertMenuItem function. You can still use InsertMenu, however, if you do not need any of the extended features of InsertMenuItem. 
+
+        //https://docs.microsoft.com/en-us/windows/desktop/api/winuser/ns-winuser-tagmenuiteminfoa
+        [StructLayout(LayoutKind.Sequential)]
+        public class MENUITEMINFO
+        {
+            public int cbSize;
+            public uint fMask;
+            public uint fType;
+            public uint fState;
+            public uint wID;
+            public IntPtr hSubMenu;
+            public IntPtr hbmpChecked;
+            public IntPtr hbmpUnchecked;
+            public IntPtr dwItemData;
+            public IntPtr dwTypeData;
+            public uint cch;
+            public IntPtr hbmpItem;
+
+            public MENUITEMINFO()
+            {
+                cbSize = Marshal.SizeOf(typeof(MENUITEMINFO));
+            }
+        }
+        
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool InsertMenuA(IntPtr hMenu, Int32 uPosition, Int32 uFlags, UIntPtr uIDNewItem,string lpNewItem); //Not working as expected
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool InsertMenu(IntPtr hMenu, Int32 wPosition, Int32 wFlags, Int32 wIDNewItem, string lpNewItem);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool InsertMenuItemA(IntPtr hmenu,UInt32 item,bool fByPosition,  MENUITEMINFO lpmi);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern bool GetMenuItemInfo(IntPtr hMenu, int uItem, bool fByPosition, MENUITEMINFO lpmii);
+        
+        //https://docs.microsoft.com/en-us/windows/desktop/menurc/wm-syscommand
+        public const Int32 WM_SYSCOMMAND = 0x112;
+
+        //For more see: https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-insertmenua
+        public const Int32 MF_SEPARATOR = 0x800; //Draws a horizontal dividing line. This flag is used only in a drop-down menu, submenu, or shortcut menu. The line cannot be grayed, disabled, or highlighted. The lpNewItem and uIDNewItem parameters are ignored. 
+        public const Int32 MF_BYCOMMAND = 0x000; //Indicates that the uPosition parameter gives the identifier of the menu item. The MF_BYCOMMAND flag is the default if neither the MF_BYCOMMAND nor MF_BYPOSITION flag is specified. 
+        public const Int32 MF_BYPOSITION = 0x400; //Indicates that the uPosition parameter gives the zero-based relative position of the new menu item. If uPosition is -1, the new menu item is appended to the end of the menu. 
+        public const Int32 MF_STRING = 0x000; //Specifies that the menu item is a text string; the lpNewItem parameter is a pointer to the string. 
+
+        public const Int32 _MyAboutMenuID = 1001;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -44,10 +101,62 @@ namespace WindowsColors
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            //ALternative: IntPtr windowHandle = new WindowInteropHelper(myWindow).Handle;
+            var windowHandle = Process.GetCurrentProcess().MainWindowHandle;
+            IntPtr systemMenuHandle = GetSystemMenu(windowHandle, false);
+            
+            //Not sure if positions are fixed on all PC's, on my system it are 5 and 6. InsertMenuA did not work properly
+            InsertMenu(systemMenuHandle, 5, MF_BYPOSITION | MF_SEPARATOR, 0, String.Empty);
+            InsertMenu(systemMenuHandle, 6, MF_BYPOSITION, _MyAboutMenuID, "About...");
+
+            HwndSource source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+            source.AddHook(new HwndSourceHook(WndProc));
+
             addButtonsFromregistry(stackPanel1, "Control Panel\\Colors");
             addButtonsFromregistry(stackPanel2, "Control Panel\\Desktop\\Colors");
         }
 
+        //https://referencesource.microsoft.com/#windowsbase/Shared/MS/Win32/HwndWrapper.cs
+        public IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_SYSCOMMAND)
+            {
+                switch (wParam.ToInt32())
+                {
+                    case _MyAboutMenuID:
+                        //I actually wanted to try something else than adding a About.XAML (https://github.com/avogelba/GetUpdates/blob/master/GetUpdates/About.xaml)
+                        //But I was diassapointed, or to stupid to use properly:
+			//Was far to big and complicated: https://www.nuget.org/packages/WpfAboutView
+                        
+			//looked OK but old: https://www.nuget.org/packages/AboutBox/
+			//Code:
+                        //BitmapImage appBi = new BitmapImage(new System.Uri("pack://application:,,,/AboutLogo.png"));
+                        //BitmapImage cBi = new BitmapImage(new System.Uri("pack://application:,,,/cLogo.png"));
+                        // About about = new About();
+                        //             about.IsSemanticVersioning = true;
+                        //             about.ApplicationLogo = appBi;
+                        //             about.PublisherLogo = cBi;
+                        //             about.HyperlinkText = "https://github.com/avogelba/WindowsColors";
+                        //about.AdditionalNotes = "Click on main Program to close About."; //very strange behaviour to close ABout
+                        //about.Show();
+
+			//I ended with my own About.XAML again:
+                        About aboutWND = new About();
+                        //über Mutterfenster Legen:
+                        aboutWND.Left = this.Left + (this.Width - this.ActualWidth) / 2;
+                        aboutWND.Top = this.Top + (this.Height - this.ActualHeight) / 2;
+                        aboutWND.Owner = this;
+                        aboutWND.Show();
+
+
+
+                        break;
+                }
+            }
+            return IntPtr.Zero;
+        }
+
+       
         /// <summary>
         /// Add a empty and invisible button
         /// </summary>

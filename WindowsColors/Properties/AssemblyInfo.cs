@@ -8,7 +8,7 @@ using System.Windows;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("WindowsColors")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Show color settings of Windows")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Vogelbacher")]
 [assembly: AssemblyProduct("WindowsColors")]
@@ -53,3 +53,5 @@ using System.Windows;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.1")]
 [assembly: AssemblyFileVersion("1.0.0.1")]
+[assembly: Guid("d5b9f581-087d-41d5-b9a3-02c0a3dbb5f1")]
+

@@ -4,6 +4,13 @@
              xmlns:local="clr-namespace:WindowsColors"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <local:AboutAssemblyDataProvider x:Key="aboutDataProvider" />
+        <XmlDataProvider x:Key="aboutProvider" XPath="ApplicationInfo" IsAsynchronous="False" IsInitialLoadEnabled="True">
+            <x:XData>
+                <ApplicationInfo xmlns="">
+                    <Link Uri="https://github.com/avogelba/WindowsColors">Homepage</Link>
+                </ApplicationInfo>
+            </x:XData>
+        </XmlDataProvider>
     </Application.Resources>
 </Application>
